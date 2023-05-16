@@ -19,12 +19,12 @@ defmodule Mix.Tasks.CoverageReporter do
   end
 
   defp fetch_upstream_branch do
-    {_, 0} = System.cmd("git", ["fetch", "origin", "main", "--depth=1"])
+    {_, 0} = System.cmd("git", ["fetch", "origin", config().base_branch, "--depth=1"])
   end
 
   defp get_changed_files do
     "git"
-    |> System.cmd(["diff", "--name-only", "origin/main"])
+    |> System.cmd(["diff", "--name-only", "origin/#{config().base_branch}"])
     |> elem(0)
     |> String.split("\n")
     |> Enum.reject(&String.equivalent?(&1, ""))
@@ -44,7 +44,7 @@ defmodule Mix.Tasks.CoverageReporter do
   end
 
   defp build_params do
-    %{branch: branch, organization: organization, repository: repository} = config()
+    %{head_branch: head_branch, organization: organization, repository: repository} = config()
 
     source_files = read_coveralls_export()
     messages = Enum.flat_map(source_files, &create_groups/1)
@@ -53,7 +53,7 @@ defmodule Mix.Tasks.CoverageReporter do
       owner: organization,
       repo: repository,
       name: "Code Coverage",
-      head_sha: branch,
+      head_sha: head_branch,
       status: "completed",
       conclusion: conclusion(source_files),
       output: %{
@@ -148,7 +148,8 @@ defmodule Mix.Tasks.CoverageReporter do
 
   defp config do
     %{
-      branch: Application.fetch_env!(:coverage_reporter, :branch),
+      head_branch: Application.fetch_env!(:coverage_reporter, :head_branch),
+      base_branch: Application.fetch_env!(:coverage_reporter, :base_branch),
       repository: Application.fetch_env!(:coverage_reporter, :repository),
       organization: Application.fetch_env!(:coverage_reporter, :organization),
       github_token: Application.fetch_env!(:coverage_reporter, :github_token)
