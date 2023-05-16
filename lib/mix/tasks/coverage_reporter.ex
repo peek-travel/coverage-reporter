@@ -67,11 +67,13 @@ defmodule Mix.Tasks.CoverageReporter do
   defp build_text_output(messages) do
     Enum.map_join(messages, "\n\n", fn message ->
       """
-      ### #{message.name}
+      <details>
+        <summary>#{message.name}</summary>
 
-      ```diff \
-      #{message.diff} \
-      ```
+        ```diff \
+        #{message.diff} \
+        ```
+      </details>
       """
     end)
   end
