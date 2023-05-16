@@ -71,7 +71,7 @@ defmodule Mix.Tasks.CoverageReporter do
         <summary>#{message.name}</summary>
 
         ```diff \
-        #{message.diff} \
+        #{message.diff}
         ```
       </details>
       """
