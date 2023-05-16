@@ -7,53 +7,60 @@ defmodule Mix.Tasks.CoverageReporter do
   @shortdoc "Runs the test suite and generates a coverage reports"
   @preferred_cli_env :test
 
-  def run(_) do
+  def run(args) do
+    switches = [
+      base_branch: :string,
+      head_branch: :string,
+      repository: :string,
+      organization: :string,
+      github_token: :string,
+      changed_files: :string
+    ]
+
+    {opts, _, _} = OptionParser.parse(args, switches: switches)
+
     run_tests()
-    fetch_upstream_branch()
-    params = build_params()
-    post(params)
+    post(opts)
+    |> IO.inspect(label: "RESPONSE")
   end
 
-  defp run_tests do
+  defp run_tests() do
     Coveralls.do_run([], type: ["json", "html"])
   end
 
-  defp fetch_upstream_branch do
-    {_, 0} = System.cmd("git", ["fetch", "origin", config().base_branch, "--depth=1"])
+  defp coverage_data do
+    "cover/excoveralls.json"
+    |> File.read!()
+    |> Jason.decode!()
+    |> Map.get("source_files")
+    |> update_in([Access.all(), "source"], &String.split(&1, "\n"))
   end
 
-  defp get_changed_files do
-    "git"
-    |> System.cmd(["diff", "--name-only", "origin/#{config().base_branch}"])
-    |> elem(0)
-    |> String.split("\n")
-    |> Enum.reject(&String.equivalent?(&1, ""))
+  def get_changed_files(opts) do
+    if opts[:changed_files] do
+      String.split(opts[:changed_files], " ", trim: true)
+    else
+      base_branch = Keyword.fetch!(opts, :base_branch)
+      {changed_files, 0} = System.cmd("git", ["diff", "--name-only", "--diff-filter=ACMRT", "origin/#{base_branch}", "HEAD"])
+      String.split(changed_files, "\n", trim: true)
+    end
   end
 
-  defp read_coveralls_export do
-    changed_files = get_changed_files()
-
-    %{"source_files" => source_files} =
-      "cover/excoveralls.json"
-      |> File.read!()
-      |> Jason.decode!()
-
-    source_files
-    |> Enum.map(&Map.put(&1, "source", String.split(&1["source"], "\n")))
-    |> Enum.filter(&Enum.member?(changed_files, &1["name"]))
+  def read_coveralls_export(opts) do
+    opts[:coverage_data] || coverage_data()
+    |> Enum.filter(&Enum.member?(get_changed_files(opts), &1["name"]))
   end
 
-  defp build_params do
-    %{head_branch: head_branch, organization: organization, repository: repository} = config()
+  def build_params(opts) do
+    source_files = read_coveralls_export(opts)
 
-    source_files = read_coveralls_export()
     messages = Enum.flat_map(source_files, &create_groups/1)
 
     %{
-      owner: organization,
-      repo: repository,
+      owner: opts[:organization],
+      repo: opts[:repository],
       name: "Code Coverage",
-      head_sha: head_branch,
+      head_sha: opts[:head_branch],
       status: "completed",
       conclusion: conclusion(source_files),
       output: %{
@@ -62,6 +69,7 @@ defmodule Mix.Tasks.CoverageReporter do
         text: build_text_output(messages)
       }
     }
+    |> IO.inspect(pretty: true)
   end
 
   defp build_text_output(messages) do
@@ -70,7 +78,7 @@ defmodule Mix.Tasks.CoverageReporter do
       <details>
         <summary>#{message.name}</summary>
 
-        ```diff \
+        ```diff
         #{message.diff}
         ```
       </details>
@@ -91,18 +99,17 @@ defmodule Mix.Tasks.CoverageReporter do
 
   defp create_groups(%{"coverage" => coverage, "name" => name, "source" => source}) do
     coverage
-    |> Enum.drop_while(&is_nil/1)
-    |> Enum.reverse()
-    |> Enum.drop_while(&is_nil/1)
-    |> Enum.reverse()
     |> Enum.with_index()
-    |> Enum.reduce([[]], fn {num, index}, groups ->
-      [current_group | rest] = groups
-      current_group = Enum.concat([{num, index, Enum.at(source, index)}], current_group)
-      [current_group | rest]
+    |> Enum.drop_while(&is_nil(elem(&1, 0)))
+    |> Enum.reverse()
+    |> Enum.drop_while(&is_nil(elem(&1, 0)))
+    |> Enum.reverse()
+    |> Enum.reduce([[]], fn {num, index}, [current_group | rest] ->
+      [Enum.concat([{num, index, Enum.at(source, index)}], current_group) | rest]
     end)
     |> Enum.map(&Enum.reverse/1)
     |> Enum.reverse()
+    |> Enum.reject(&Enum.empty?/1)
     |> Enum.map(fn group ->
       start_line = group |> List.first() |> elem(1)
       end_line = group |> List.last() |> elem(1)
@@ -119,19 +126,19 @@ defmodule Mix.Tasks.CoverageReporter do
     end)
   end
 
-  defp post(params) do
+  defp post(opts) do
     :inets.start()
     :ssl.start()
 
-    url = 'https://api.github.com/repos/SLAM-Carwash-Marketing/SlamE/check-runs'
+    url = 'https://api.github.com/repos/#{opts[:organization]}/#{opts[:repository]}/check-runs'
     headers = [
-      {'Authorization', 'Bearer #{config().github_token}'},
+      {'Authorization', 'Bearer #{Keyword.fetch!(opts, :github_token)}'},
       {'Accept', 'application/vnd.github+json'},
       {'X-GitHub-Api-Version', '2022-11-28'},
       {'User-Agent', 'CoverageReporter'}
     ]
     content_type = 'application/json'
-    body = Jason.encode!(params)
+    body = Jason.encode!(build_params(opts))
 
     http_request_opts = [
       ssl: [
@@ -144,15 +151,5 @@ defmodule Mix.Tasks.CoverageReporter do
     ]
 
     :httpc.request(:post, {url, headers, content_type, body}, http_request_opts, [])
-  end
-
-  defp config do
-    %{
-      head_branch: Application.fetch_env!(:coverage_reporter, :head_branch),
-      base_branch: Application.fetch_env!(:coverage_reporter, :base_branch),
-      repository: Application.fetch_env!(:coverage_reporter, :repository),
-      organization: Application.fetch_env!(:coverage_reporter, :organization),
-      github_token: Application.fetch_env!(:coverage_reporter, :github_token)
-    }
   end
 end

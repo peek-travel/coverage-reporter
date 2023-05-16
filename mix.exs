@@ -21,7 +21,8 @@ defmodule CoverageReporter.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:excoveralls, "~> 0.16", only: :test}
+      {:excoveralls, "~> 0.16", only: :test},
+      {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false}
     ]
   end
 end
