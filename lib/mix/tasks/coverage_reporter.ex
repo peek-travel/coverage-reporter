@@ -21,7 +21,6 @@ defmodule Mix.Tasks.CoverageReporter do
 
     run_tests()
     post(opts)
-    |> IO.inspect(label: "RESPONSE")
   end
 
   defp run_tests() do
@@ -69,7 +68,6 @@ defmodule Mix.Tasks.CoverageReporter do
         text: build_text_output(messages)
       }
     }
-    |> IO.inspect(pretty: true)
   end
 
   defp build_text_output(messages) do
