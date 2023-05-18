@@ -14,7 +14,8 @@ defmodule Mix.Tasks.CoverageReporter do
       repository: :string,
       organization: :string,
       github_token: :string,
-      changed_files: :string
+      changed_files: :string,
+      app: :string
     ]
 
     {opts, _, _} = OptionParser.parse(args, switches: switches)
