@@ -24,15 +24,36 @@ defmodule Mix.Tasks.CoverageReporter do
   end
 
   defp run_tests() do
-    Coveralls.do_run([], type: ["json", "html"])
+    Coveralls.do_run([], type: "json")
   end
 
   defp coverage_data do
-    "cover/excoveralls.json"
-    |> File.read!()
-    |> Jason.decode!()
-    |> Map.get("source_files")
-    |> update_in([Access.all(), "source"], &String.split(&1, "\n"))
+    if Mix.Project.umbrella?() do
+      Enum.flat_map(Mix.Project.apps_paths(), fn {_app, path} ->
+        excoveralls_path = "#{path}/cover/excoveralls.json"
+        if File.exists?(excoveralls_path) do
+          excoveralls_path
+          |> do_get_coverage_data()
+          |> update_in([Access.all(), "name"], &"#{path}/#{&1}")
+        else
+          []
+        end
+      end)
+    else
+      do_get_coverage_data("cover/excoveralls.json")
+    end
+  end
+
+  defp do_get_coverage_data(path) do
+    if File.exists?(path) do
+      path
+      |> File.read!()
+      |> Jason.decode!()
+      |> Map.get("source_files")
+      |> update_in([Access.all(), "source"], &String.split(&1, "\n"))
+    else
+      []
+    end
   end
 
   def get_changed_files(opts) do
@@ -52,7 +73,6 @@ defmodule Mix.Tasks.CoverageReporter do
 
   def build_params(opts) do
     source_files = read_coveralls_export(opts)
-
     messages = Enum.flat_map(source_files, &create_groups/1)
 
     %{
@@ -137,7 +157,6 @@ defmodule Mix.Tasks.CoverageReporter do
     ]
     content_type = 'application/json'
     body = Jason.encode!(build_params(opts))
-
     http_request_opts = [
       ssl: [
         verify: :verify_peer,
