@@ -27,20 +27,28 @@ defmodule Mix.Tasks.CoverageReporter do
     Coveralls.do_run([], type: "json")
   end
 
-  defp coverage_data do
-    if Mix.Project.umbrella?() do
-      Enum.flat_map(Mix.Project.apps_paths(), fn {_app, path} ->
-        excoveralls_path = "#{path}/cover/excoveralls.json"
-        if File.exists?(excoveralls_path) do
-          excoveralls_path
-          |> do_get_coverage_data()
-          |> update_in([Access.all(), "name"], &"#{path}/#{&1}")
-        else
-          []
-        end
-      end)
-    else
-      do_get_coverage_data("cover/excoveralls.json")
+  defp coverage_data(opts) do
+    app = Keyword.get(opts, :app)
+    coveralls_path = "cover/excoveralls.json"
+
+    cond do
+      not is_nil(app) ->
+        do_get_coverage_data("#{app}/#{coveralls_path}")
+
+      Mix.Project.umbrella?() ->
+        Enum.flat_map(Mix.Project.apps_paths(), fn {_app, path} ->
+          excoveralls_path = "#{path}/cover/excoveralls.json"
+          if File.exists?(excoveralls_path) do
+            excoveralls_path
+            |> do_get_coverage_data()
+            |> update_in([Access.all(), "name"], &"#{path}/#{&1}")
+          else
+            []
+          end
+        end)
+
+      true ->
+        do_get_coverage_data("cover/excoveralls.json")
     end
   end
 
@@ -67,7 +75,7 @@ defmodule Mix.Tasks.CoverageReporter do
   end
 
   def read_coveralls_export(opts) do
-    opts[:coverage_data] || coverage_data()
+    opts[:coverage_data] || coverage_data(opts)
     |> Enum.filter(&Enum.member?(get_changed_files(opts), &1["name"]))
   end
 
@@ -78,7 +86,7 @@ defmodule Mix.Tasks.CoverageReporter do
     %{
       owner: opts[:organization],
       repo: opts[:repository],
-      name: "Code Coverage",
+      name: name(opts),
       head_sha: opts[:head_branch],
       status: "completed",
       conclusion: conclusion(source_files),
@@ -88,6 +96,16 @@ defmodule Mix.Tasks.CoverageReporter do
         text: build_text_output(messages)
       }
     }
+  end
+
+  defp name(opts) do
+    app = Keyword.get(opts, :app)
+
+    if not is_nil(app) do
+      "Code Coverage - #{app}"
+    else
+      "Code Coverage"
+    end
   end
 
   defp build_text_output(messages) do

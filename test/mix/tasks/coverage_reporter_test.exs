@@ -25,7 +25,7 @@ defmodule Mix.Tasks.CoverageReporterTest do
     coverage_data = [coverage_item([nil, nil, nil, 0, 1, 2, nil, nil])]
     changed_files = changed_files(coverage_data)
     assert %{output: %{text: text}} = build_params(coverage_data: coverage_data, changed_files: changed_files)
-    assert text =~ "```diff   - line 4\n! line 5\n+ line 6\n  ```"
+    assert text =~ "```diff\n  - line 4\n! line 5\n+ line 6\n  ```"
   end
 
   defp changed_files(coverage_data) do
