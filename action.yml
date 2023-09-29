@@ -1,0 +1,26 @@
+name: 'Coverage Reporter'
+description: 'Coverage Reporter'
+
+inputs:
+  github-token:
+    description: The GitHub token used to create an authenticated client
+    default: ${{ github.token }}
+    required: false
+  pull-number:
+    required: true
+    description: 'Pull Request Number'
+  repository: 
+    required: true
+    description: 'Repository Name'
+  head-branch:
+    required: true
+    description: 'Head Branch'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.pull-number }}
+    - ${{ inputs.repository }}
+    - ${{ inputs.head-branch }}
+    - ${{ inputs.github-token }}
