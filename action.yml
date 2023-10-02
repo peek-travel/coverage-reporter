@@ -2,8 +2,8 @@ name: 'Coverage Reporter'
 description: 'Coverage Reporter'
 
 inputs:
-  github-token:
-    description: The GitHub token used to create an authenticated client
+  GITHUB_TOKEN:
+    description: 'Github token of the repository (automatically created by Github)'
     default: ${{ github.token }}
     required: false
   pull-number:
@@ -23,4 +23,4 @@ runs:
     - ${{ inputs.pull-number }}
     - ${{ inputs.repository }}
     - ${{ inputs.head-branch }}
-    - ${{ inputs.github-token }}
+    - ${{ inputs.GITHUB_TOKEN }}

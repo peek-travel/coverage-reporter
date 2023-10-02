@@ -342,7 +342,8 @@ defmodule CoverageReporter do
     :inets.start()
     :ssl.start()
 
-    url = ~c"https://api.github.com/repos/#{path}"
+    github_api_url = System.get_env("GITHUB_API_URL")
+    url = ~c"#{github_api_url}/repos/#{path}"
 
     headers = [
       {~c"Authorization", ~c"Bearer #{github_token}"},
