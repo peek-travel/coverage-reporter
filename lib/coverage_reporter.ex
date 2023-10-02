@@ -378,13 +378,20 @@ defmodule CoverageReporter do
     end
   end
 
-  defp pull_number, do: System.get_env("INPUT_PULL_NUMBER")
-  defp head_branch, do: System.get_env("INPUT_HEAD_BRANCH")
-  defp repository, do: System.get_env("INPUT_REPOSITORY")
+  defp coverage_threshold, do: "INPUT_COVERAGE_THRESHOLD" |> System.get_env("80") |> String.to_integer()
   defp lcov_path, do: System.get_env("INPUT_LCOV_PATH")
+  defp head_branch, do: System.get_env("GITHUB_HEAD_REF")
+  defp repository, do: System.get_env("GITHUB_REPOSITORY")
   defp github_workspace, do: System.get_env("GITHUB_WORKSPACE")
-  defp pull_number, do: System.get_env("INPUT_PULL_NUMBER")
   defp github_token, do: System.get_env("INPUT_GITHUB_TOKEN")
   defp github_api_url, do: System.get_env("GITHUB_API_URL")
-  defp coverage_threshold, do: "INPUT_COVERAGE_THRESHOLD" |> System.get_env("80") |> String.to_integer()
+
+  defp pull_number do
+    github_ref = System.get_env("GITHUB_REF") |> String.split("/")
+
+    case github_ref do
+      ["refs", "pull", pr_number, "merge"] -> pr_number
+      _ -> raise "Could not find pull request number."
+    end
+  end
 end

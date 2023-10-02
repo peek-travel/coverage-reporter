@@ -6,15 +6,6 @@ inputs:
     description: 'Github token of the repository (automatically created by Github)'
     default: ${{ github.token }}
     required: false
-  pull_number:
-    required: true
-    description: 'Pull Request Number'
-  repository: 
-    required: true
-    description: 'Repository Name'
-  head_branch:
-    required: true
-    description: 'Head Branch'
   coverage_threshold:
     required: true
     description: 'Coverage Threshold'
