@@ -20,7 +20,7 @@ defmodule CoverageReporter do
   However, The LCOV files produced by excoveralls only include SF, DA, LF, LH, and end_of_record lines.
   """
 
-  def run(pull_number, repository, github_token, head_branch) do
+  def run(pull_number, repository, head_branch, github_token) do
     changed_files = get_changed_files(repository, pull_number, github_token)
     {total, module_results} = get_coverage_from_lcov_files()
     changed_module_results = module_results_for_changed_files(module_results, changed_files)
