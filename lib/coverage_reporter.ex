@@ -45,10 +45,9 @@ defmodule CoverageReporter do
         annotations: Enum.take(annotations, 50)
       }
     }
-    |> IO.puts()
 
-    # github_request(:post, "#{repository}/check-runs", github_token, params)
-    # create_or_update_review_comment(repository, pull_number, summary, github_token)
+    github_request(:post, "#{repository}/check-runs", github_token, params)
+    create_or_update_review_comment(repository, pull_number, summary, github_token)
 
     :ok
   end
