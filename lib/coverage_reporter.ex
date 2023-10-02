@@ -121,6 +121,8 @@ defmodule CoverageReporter do
           |> String.split(",")
           |> Enum.map(&String.to_integer(&1))
 
+        line_number = line_number - 1
+
         if count == 0 do
           :ets.insert(table, {{path, line_number}, false})
         else
