@@ -143,7 +143,6 @@ defmodule CoverageReporter do
 
     files
     |> Enum.reject(&String.equivalent?(&1["status"], "removed"))
-    |> Enum.filter(&String.ends_with?(&1["filename"], ".ex"))
     |> Enum.map(fn file ->
       %{file: file["filename"], changed_lines: extract_changed_lines(file["patch"])}
     end)
