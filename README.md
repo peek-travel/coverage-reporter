@@ -8,7 +8,10 @@
   id: coverage-reporter
   if: github.event_name == 'pull_request'
   with: 
-    pull-number: ${{ github.event.number }}
+    pull_number: ${{ github.event.number }}
     repository: ${{ github.repository }}
-    head-branch: ${{ github.head_ref }}
+    head_branch: ${{ github.head_ref }}
+    lcov_path: cover/**-lcov.info
+    coverage_threshold: 80
 ```
+

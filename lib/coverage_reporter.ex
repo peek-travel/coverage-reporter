@@ -20,12 +20,12 @@ defmodule CoverageReporter do
   However, The LCOV files produced by excoveralls only include SF, DA, LF, LH, and end_of_record lines.
   """
 
-  def run(pull_number, repository, head_branch, github_token) do
-    changed_files = get_changed_files(repository, pull_number, github_token)
+  def run do
+    changed_files = get_changed_files()
     {total, module_results} = get_coverage_from_lcov_files()
     changed_module_results = module_results_for_changed_files(module_results, changed_files)
 
-    title = "Code Coverage for ##{pull_number}"
+    title = "Code Coverage for ##{pull_number()}"
     badge = create_total_coverage_badge(total)
     coverage_by_file = get_coverage_by_file(changed_module_results)
     annotations = create_annotations(changed_module_results, changed_files)
@@ -34,7 +34,7 @@ defmodule CoverageReporter do
 
     params = %{
       name: "Code Coverage",
-      head_sha: head_branch,
+      head_sha: head_branch(),
       status: "completed",
       conclusion: get_conclusion(total),
       output: %{
@@ -46,8 +46,8 @@ defmodule CoverageReporter do
       }
     }
 
-    github_request(:post, "#{repository}/check-runs", github_token, params)
-    create_or_update_review_comment(repository, pull_number, summary, github_token)
+    github_request(:post, "#{repository()}/check-runs", params)
+    create_or_update_review_comment(summary)
 
     :ok
   end
@@ -89,8 +89,7 @@ defmodule CoverageReporter do
   end
 
   defp get_coverage_from_lcov_files do
-    project_path = System.get_env("GITHUB_WORKSPACE")
-    lcov_paths = Path.wildcard("#{project_path}/cover/**-lcov.info")
+    lcov_paths = Path.wildcard("#{github_workspace()}/#{lcov_path()}")
     table = :ets.new(__MODULE__, [:set, :private])
 
     module_results =
@@ -136,9 +135,9 @@ defmodule CoverageReporter do
     {percentage(covered, not_covered), path, coverage_by_line}
   end
 
-  defp get_changed_files(repository, pull_number, github_token) do
+  defp get_changed_files do
     {:ok, 200, files} =
-      github_request_all("#{repository}/pulls/#{pull_number}/files", github_token)
+      github_request_all("#{repository()}/pulls/#{pull_number()}/files")
 
     files
     |> Enum.reject(&String.equivalent?(&1["status"], "removed"))
@@ -175,7 +174,7 @@ defmodule CoverageReporter do
   end
 
   defp get_conclusion(total) do
-    if total >= 80 do
+    if total >= coverage_threshold() do
       "success"
     else
       "neutral"
@@ -183,29 +182,28 @@ defmodule CoverageReporter do
   end
 
   defp get_conclusion_color(total) do
-    if total >= 80 do
+    if total >= coverage_threshold() do
       "green"
     else
       "yellow"
     end
   end
 
-  defp create_or_update_review_comment(repository, pull_number, summary, github_token) do
+  defp create_or_update_review_comment(summary) do
     {:ok, 200, reviews} =
-      github_request_all("#{repository}/pulls/#{pull_number}/reviews", github_token)
+      github_request_all("#{repository()}/pulls/#{pull_number()}/reviews")
 
-    review = Enum.find(reviews, &(&1["body"] =~ "Code Coverage for ##{pull_number}"))
+    review = Enum.find(reviews, &(&1["body"] =~ "Code Coverage for ##{pull_number()}"))
 
     if is_nil(review) do
-      github_request(:post, "#{repository}/pulls/#{pull_number}/reviews", github_token, %{
+      github_request(:post, "#{repository()}/pulls/#{pull_number()}/reviews", %{
         body: summary,
         event: "COMMENT"
       })
     else
       github_request(
         :put,
-        "#{repository}/pulls/#{pull_number}/reviews/#{review["id"]}",
-        github_token,
+        "#{repository()}/pulls/#{pull_number()}/reviews/#{review["id"]}",
         %{
           body: summary
         }
@@ -215,13 +213,11 @@ defmodule CoverageReporter do
 
   defp create_annotations(changed_module_results, changed_files) do
     Enum.flat_map(changed_module_results, fn {_percentage, module_path, coverage_by_line} ->
-      project_path = System.get_env("GITHUB_WORKSPACE")
-
       %{file: file, changed_lines: changed_lines} =
         Enum.find(changed_files, fn %{file: file} -> String.ends_with?(file, module_path) end)
 
       source_code_lines =
-        "#{project_path}/#{file}"
+        "#{github_workspace()}/#{file}"
         |> File.read!()
         |> String.split("\n")
         |> Enum.with_index(0)
@@ -300,6 +296,8 @@ defmodule CoverageReporter do
     end
   end
 
+  defp extract_changed_lines(nil), do: []
+
   defp extract_changed_lines(patch) do
     patch
     |> String.split("\n")
@@ -321,14 +319,14 @@ defmodule CoverageReporter do
     |> Enum.reverse()
   end
 
-  defp github_request_all(path, github_token, params \\ %{page: 1}, accumulator \\ []) do
-    case github_request(:get, path, github_token, params) do
+  defp github_request_all(path, params \\ %{page: 1}, accumulator \\ []) do
+    case github_request(:get, path, params) do
       {:ok, 200, []} ->
         {:ok, 200, accumulator}
 
       {:ok, 200, results} ->
         params = Map.put(params, :page, params[:page] + 1)
-        github_request_all(path, github_token, params, results ++ accumulator)
+        github_request_all(path, params, results ++ accumulator)
 
       {:ok, status_code, result} ->
         {:ok, status_code, result}
@@ -338,15 +336,14 @@ defmodule CoverageReporter do
     end
   end
 
-  defp github_request(method, path, github_token, params) do
+  defp github_request(method, path, params) do
     :inets.start()
     :ssl.start()
 
-    github_api_url = System.get_env("GITHUB_API_URL")
-    url = ~c"#{github_api_url}/repos/#{path}"
+    url = ~c"#{github_api_url()}/repos/#{path}"
 
     headers = [
-      {~c"Authorization", ~c"Bearer #{github_token}"},
+      {~c"Authorization", ~c"Bearer #{github_token()}"},
       {~c"Accept", ~c"application/vnd.github+json"},
       {~c"X-GitHub-Api-Version", ~c"2022-11-28"},
       {~c"User-Agent", ~c"CoverageReporter"}
@@ -380,4 +377,14 @@ defmodule CoverageReporter do
         {:error, reason}
     end
   end
+
+  defp pull_number, do: System.get_env("INPUT_PULL_NUMBER")
+  defp head_branch, do: System.get_env("INPUT_HEAD_BRANCH")
+  defp repository, do: System.get_env("INPUT_REPOSITORY")
+  defp lcov_path, do: System.get_env("INPUT_LCOV_PATH")
+  defp github_workspace, do: System.get_env("GITHUB_WORKSPACE")
+  defp pull_number, do: System.get_env("INPUT_PULL_NUMBER")
+  defp github_token, do: System.get_env("INPUT_GITHUB_TOKEN")
+  defp github_api_url, do: System.get_env("GITHUB_API_URL")
+  defp coverage_threshold, do: "INPUT_COVERAGE_THRESHOLD" |> System.get_env("80") |> String.to_integer()
 end

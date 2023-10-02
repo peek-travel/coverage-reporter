@@ -6,21 +6,23 @@ inputs:
     description: 'Github token of the repository (automatically created by Github)'
     default: ${{ github.token }}
     required: false
-  pull-number:
+  pull_number:
     required: true
     description: 'Pull Request Number'
   repository: 
     required: true
     description: 'Repository Name'
-  head-branch:
+  head_branch:
     required: true
     description: 'Head Branch'
+  coverage_threshold:
+    required: true
+    description: 'Coverage Threshold'
+    default: 80
+  lcov_path:
+    required: true
+    description: LCOV file path. The path may contain wildcards. [Reference](https://hexdocs.pm/elixir/Path.html#wildcard/2)
 
 runs:
   using: 'docker'
   image: 'Dockerfile'
-  args:
-    - ${{ inputs.pull-number }}
-    - ${{ inputs.repository }}
-    - ${{ inputs.head-branch }}
-    - ${{ inputs.GITHUB_TOKEN }}

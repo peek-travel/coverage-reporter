@@ -9,4 +9,4 @@ mix local.hex --force
 mix local.rebar --force
 mix deps.get
 mix compile
-mix run --no-mix-exs -e "CoverageReporter.run(\"$1\", \"$2\", \"$3\", \"$4\")"
+mix run --no-mix-exs -e "CoverageReporter.run()"
