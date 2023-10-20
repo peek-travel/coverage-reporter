@@ -21,9 +21,17 @@ defmodule CoverageReporter do
   """
 
   def run do
-    changed_files = get_changed_files()
-    {total, module_results} = get_coverage_from_lcov_files()
-    changed_module_results = module_results_for_changed_files(module_results, changed_files)
+    changed_files =
+      get_changed_files()
+      |> IO.inspect(label: "Changed Files", limit: :infinity, pretty: true)
+
+    {total, module_results} =
+      get_coverage_from_lcov_files()
+      |> IO.inspect(label: "Coverage from LCOV", limit: :infinity, pretty: true)
+
+    changed_module_results =
+      module_results_for_changed_files(module_results, changed_files)
+      |> IO.inspect(label: "Changed module results", limit: :infinity, pretty: true)
 
     title = "Code Coverage for ##{pull_number()}"
     badge = create_total_coverage_badge(total)
@@ -32,19 +40,21 @@ defmodule CoverageReporter do
 
     summary = Enum.join(["#### #{title}", badge, coverage_by_file], "\n\n")
 
-    params = %{
-      name: "Code Coverage",
-      head_sha: head_branch(),
-      status: "completed",
-      conclusion: get_conclusion(total),
-      output: %{
-        title: title,
-        # Maximum length for summary and text is 65535 characters.
-        summary: String.slice(Enum.join([badge, coverage_by_file], "\n\n"), 0, 65_535),
-        # 50 is the max number of annotations allowed by GitHub.
-        annotations: Enum.take(annotations, 50)
+    params =
+      %{
+        name: "Code Coverage",
+        head_sha: head_branch(),
+        status: "completed",
+        conclusion: get_conclusion(total),
+        output: %{
+          title: title,
+          # Maximum length for summary and text is 65535 characters.
+          summary: String.slice(Enum.join([badge, coverage_by_file], "\n\n"), 0, 65_535),
+          # 50 is the max number of annotations allowed by GitHub.
+          annotations: Enum.take(annotations, 50)
+        }
       }
-    }
+      |> IO.inspect(label: "Check run params", limit: :infinity, pretty: true)
 
     github_request(:post, "#{repository()}/check-runs", params)
     create_or_update_review_comment(summary)
@@ -89,7 +99,15 @@ defmodule CoverageReporter do
   end
 
   defp get_coverage_from_lcov_files do
-    lcov_paths = Path.wildcard("#{github_workspace()}/#{lcov_path()}")
+    lcov_paths =
+      Path.wildcard("#{github_workspace()}/#{lcov_path()}")
+      |> IO.inspect(label: "LCOV Paths")
+
+    Enum.each(lcov_paths, fn path ->
+      contents = File.read!(path)
+      IO.inspect(contents, label: "LCOV Contents")
+    end)
+
     table = :ets.new(__MODULE__, [:set, :private])
 
     module_results =
@@ -215,6 +233,9 @@ defmodule CoverageReporter do
 
   defp create_annotations(changed_module_results, changed_files) do
     Enum.flat_map(changed_module_results, fn {_percentage, module_path, coverage_by_line} ->
+      IO.inspect(module_path, label: "Module Path")
+      IO.inspect(changed_files, label: "Changed Files")
+
       %{file: file, changed_lines: changed_lines} =
         Enum.find(changed_files, fn %{file: file} -> String.ends_with?(file, module_path) end)
 
@@ -380,7 +401,9 @@ defmodule CoverageReporter do
     end
   end
 
-  defp coverage_threshold, do: "INPUT_COVERAGE_THRESHOLD" |> System.get_env("80") |> String.to_integer()
+  defp coverage_threshold,
+    do: "INPUT_COVERAGE_THRESHOLD" |> System.get_env("80") |> String.to_integer()
+
   defp lcov_path, do: System.get_env("INPUT_LCOV_PATH")
   defp head_branch, do: System.get_env("GITHUB_HEAD_REF")
   defp repository, do: System.get_env("GITHUB_REPOSITORY")
