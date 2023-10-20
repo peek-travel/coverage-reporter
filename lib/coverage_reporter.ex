@@ -73,6 +73,8 @@ defmodule CoverageReporter do
 
     Enum.filter(module_results, fn {_, module_path, _} ->
       Enum.any?(changed_file_names, fn changed_file_name ->
+        IO.inspect(changed_file_name, label: "Changed File Name")
+        IO.inspect(module_path, label: "Module Path")
         String.ends_with?(changed_file_name, module_path)
       end)
     end)
