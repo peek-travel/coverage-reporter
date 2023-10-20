@@ -105,7 +105,7 @@ defmodule CoverageReporter do
 
     Enum.each(lcov_paths, fn path ->
       contents = File.read!(path)
-      IO.inspect(contents, label: "LCOV Contents")
+      IO.inspect(contents, label: "LCOV Contents", limit: :infinity)
     end)
 
     table = :ets.new(__MODULE__, [:set, :private])
