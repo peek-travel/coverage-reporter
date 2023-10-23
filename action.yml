@@ -1,19 +1,23 @@
-name: 'Coverage Reporter'
-description: 'Coverage Reporter'
+name: "Coverage Reporter"
+description: "Coverage Reporter"
 
 inputs:
   GITHUB_TOKEN:
-    description: 'Github token of the repository (automatically created by Github)'
+    description: "Github token of the repository (automatically created by Github)"
     default: ${{ github.token }}
     required: false
   coverage_threshold:
     required: true
-    description: 'Coverage Threshold'
-    default: 80
+    description: "Coverage Threshold"
+    default: "80"
   lcov_path:
     required: true
     description: LCOV file path. The path may contain wildcards. [Reference](https://hexdocs.pm/elixir/Path.html#wildcard/2)
+  lcov_path_prefix:
+    required: false
+    description: If the path returned on the review summary includes the absolute path, you can use this option to remove the prefix.
+    default: ""
 
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
+  using: "docker"
+  image: "Dockerfile"

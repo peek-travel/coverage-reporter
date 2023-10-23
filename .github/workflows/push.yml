@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  OTP_VERSION: 26.1.1
+  ELIXIR_VERSION: 1.15.6-otp-26
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      
+    - name: Elixir
+      uses: erlef/setup-beam@v1
+      with:
+        otp-version: ${{ env.OTP_VERSION }}
+        elixir-version: ${{ env.ELIXIR_VERSION }}
+
+    - name: Build Cache
+      uses: actions/cache/restore@v3
+      id: build-cache
+      with:
+        path: _build
+        key: build-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('mix.lock') }}
+    
+    - name: Deps Cache
+      uses: actions/cache/restore@v3
+      id: deps-cache
+      with:
+        path: deps
+        key: deps-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('mix.lock') }}
+
+    - name: Install Mix Dependencies
+      if: steps.deps-cache.outputs.cache-hit != 'true'
+      run: mix deps.get
+    
+    - name: Compile
+      if: steps.build-cache.outputs.cache-hit != 'true'
+      run: mix compile
+
+    - name: Check Formatting
+      run: mix format --check-formatted
+
+    - name: Run Credo
+      run: mix credo --strict
+
+    - name: Run Tests
+      run: mix lcov
+      
+    - name: Coverage Reporter
+      uses: peek-travel/coverage-reporter@cygnus
+      id: coverage-reporter
+      if: github.event_name == 'pull_request'
+      continue-on-error: true
+      with: 
+        lcov_path: cover/lcov.info
+        coverage_threshold: 90
+    
+    - name: Restore PLT cache
+      uses: actions/cache@v2
+      id: plt-cache
+      with:
+        key: plt-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}
+        path: priv/plts
+
+    - name: Create PLTs
+      if: steps.plt-cache.outputs.cache-hit != 'true'
+      run: MIX_ENV=dev mix dialyzer --plt
+
+    - name: Run dialyzer
+      run: MIX_ENV=dev mix dialyzer --format github
+
+    - name: Save Deps Cache
+      id: deps-cache-save
+      uses: actions/cache/save@v3
+      with:
+        path: deps
+        key: deps-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('mix.lock') }}
+
+    - name: Save Build Cache
+      id: build-cache-save
+      uses: actions/cache/save@v3
+      with:
+        path: _build
+        key: build-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('mix.lock') }}
+
+    - name: Save PLT cache
+      id: plt-cache-save
+      uses: actions/cache/save@v3
+      with:
+        path: priv/plts
+        key: plt-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}
