@@ -57,7 +57,7 @@ jobs:
       run: mix lcov
       
     - name: Coverage Reporter
-      uses: peek-travel/coverage-reporter@cygnus
+      uses: peek-travel/coverage-reporter@main
       id: coverage-reporter
       if: github.event_name == 'pull_request'
       continue-on-error: true
