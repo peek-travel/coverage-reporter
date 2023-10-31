@@ -21,7 +21,13 @@ defmodule CoverageReporter.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:jason, "~> 1.2"}
+      {:briefly, "~> 0.4.0", only: :test},
+      {:bypass, "~> 2.1", only: :test},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:jason, "~> 1.2"},
+      {:lcov_ex, "~> 0.3", only: [:dev, :test], runtime: false},
+      {:req, "~> 0.4.4"}
     ]
   end
 end
