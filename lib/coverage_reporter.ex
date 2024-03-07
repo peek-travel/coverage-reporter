@@ -20,9 +20,8 @@ defmodule CoverageReporter do
   However, The LCOV files produced by excoveralls only include SF, DA, LF, LH, and end_of_record lines.
   """
 
-  def run(opts \\ []) do
+  def main(opts) do
     config = get_config(opts)
-
     %{pull_number: pull_number, head_branch: head_branch, repository: repository} = config
     changed_files = get_changed_files(config)
     {total, module_results} = get_coverage_from_lcov_files(config)
@@ -96,14 +95,15 @@ defmodule CoverageReporter do
     table = :ets.new(__MODULE__, [:set, :private])
 
     module_results =
-      Enum.flat_map(lcov_paths, fn path ->
+      Enum.reduce(lcov_paths, %{}, fn path, acc ->
         path
         |> File.stream!()
         |> Stream.map(&String.trim(&1))
         |> Stream.chunk_by(&(&1 == "end_of_record"))
         |> Stream.reject(&(&1 == ["end_of_record"]))
-        |> Stream.map(fn record -> process_lcov_record(table, record) end)
+        |> Enum.reduce(acc, fn record, acc -> process_lcov_record(table, record, acc) end)
       end)
+      |> Map.values()
 
     covered = :ets.select_count(table, [{{{:_, :_}, true}, [], [true]}])
     not_covered = :ets.select_count(table, [{{{:_, :_}, false}, [], [true]}])
@@ -112,7 +112,7 @@ defmodule CoverageReporter do
     {total, module_results}
   end
 
-  defp process_lcov_record(table, record) do
+  defp process_lcov_record(table, record, acc) do
     "SF:" <> path = Enum.find(record, &String.starts_with?(&1, "SF:"))
 
     coverage_by_line =
@@ -124,19 +124,22 @@ defmodule CoverageReporter do
           |> String.split(",")
           |> Enum.map(&String.to_integer(&1))
 
+        covered = :ets.select_count(table, [{{{path, line_number}, true}, [], [true]}])
         insert_line_coverage(table, count, path, line_number)
 
-        {line_number, count}
+        {line_number, count + covered}
       end)
 
     covered = :ets.select_count(table, [{{{path, :_}, true}, [], [true]}])
     not_covered = :ets.select_count(table, [{{{path, :_}, false}, [], [true]}])
-    {percentage(covered, not_covered), path, coverage_by_line}
+    Map.put(acc, path, {percentage(covered, not_covered), path, coverage_by_line})
   end
 
   defp insert_line_coverage(table, count, path, line_number) do
-    if count == 0 do
-      :ets.insert(table, {{path, line_number}, false})
+    covered_count = :ets.select_count(table, [{{{path, line_number}, true}, [], [true]}])
+
+    if count == 0 and covered_count == 0 do
+      :ets.insert_new(table, {{path, line_number}, false})
     else
       Enum.each(1..count, fn _ -> :ets.insert(table, {{path, line_number}, true}) end)
     end
@@ -262,12 +265,12 @@ defmodule CoverageReporter do
       |> Enum.reduce(_groups = [], &add_line_to_groups/2)
       |> Enum.reduce(
         _annotations = [],
-        &create_annotations(&1, &2, changed_lines, file, source_code)
+        &do_create_annotations(&1, &2, changed_lines, file, source_code)
       )
     end)
   end
 
-  defp create_annotations(line_number_group, annotations, changed_lines, file, source_code) do
+  defp do_create_annotations(line_number_group, annotations, changed_lines, file, source_code) do
     end_line = List.first(line_number_group)
     start_line = List.last(line_number_group)
 
@@ -372,18 +375,12 @@ defmodule CoverageReporter do
 
   defp github_request_all(config, path, params \\ %{page: 1}, accumulator \\ []) do
     case github_request(config, method: :get, url: path, params: params) do
-      {:ok, 200, []} ->
+      {200, []} ->
         {:ok, 200, accumulator}
 
-      {:ok, 200, results} ->
+      {200, results} ->
         params = Map.put(params, :page, params[:page] + 1)
         github_request_all(config, path, params, results ++ accumulator)
-
-      {:ok, status_code, result} ->
-        {:ok, status_code, result}
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 
@@ -400,16 +397,18 @@ defmodule CoverageReporter do
       {:user_agent, "CoverageReporter"}
     ]
 
-    options = Keyword.merge(opts, base_url: github_api_url, headers: headers)
+    options =
+      Keyword.merge(opts,
+        base_url: github_api_url,
+        headers: headers,
+        connect_options: [transport_opts: [cacertfile: "/cacerts.pem"]]
+      )
+
     request = Req.new(options)
 
-    case Req.request(request) do
-      {_request, %{status: status, body: body}} ->
-        {:ok, status, body}
+    {_request, %{status: status, body: body}} = Req.request(request)
 
-      {:error, reason} ->
-        {:error, reason}
-    end
+    {status, body}
   end
 
   defp get_config(opts) do
@@ -442,11 +441,9 @@ defmodule CoverageReporter do
     do: opts[:lcov_path_prefix] || System.get_env("INPUT_LCOV_PATH_PREFIX")
 
   defp pull_number(opts) do
-    github_ref = (opts[:github_ref] || System.get_env("GITHUB_REF")) |> String.split("/")
+    ["refs", "pull", pr_number, "merge"] =
+      (opts[:github_ref] || System.get_env("GITHUB_REF")) |> String.split("/")
 
-    case github_ref do
-      ["refs", "pull", pr_number, "merge"] -> pr_number
-      _ -> raise "Could not find pull request number."
-    end
+    pr_number
   end
 end
