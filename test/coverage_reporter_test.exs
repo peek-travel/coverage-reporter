@@ -7,7 +7,7 @@ defmodule CoverageReporterTest do
 
     config = [
       coverage_threshold: "80",
-      input_lcov_path: "lcov.info",
+      input_lcov_path: "*lcov.info",
       github_ref: "refs/pull/1/merge",
       input_github_token: "github-token",
       github_workspace: workspace,
@@ -25,7 +25,8 @@ defmodule CoverageReporterTest do
     setup_changes(
       bypass,
       config,
-      path: "path/to/file",
+      lcov_path: "1-lcov.info",
+      file_path: "path/to/file",
       status: "added",
       changed_lines: [1, 2, 3, 4, 5, 6, 7, 8],
       patch: "@@ -0,0 +1,8 @@\n+one\n+two\n+three\n+four\n+five\n+six\n+seven\n+eight\n",
@@ -47,9 +48,50 @@ defmodule CoverageReporterTest do
                   }
                 ]
               }
-            }} = CoverageReporter.run(config)
+            }} = CoverageReporter.main(config)
 
     assert summary =~ "87.5%"
+  end
+
+  test "with a partitioned lcov files", ctx do
+    %{bypass: bypass, config: config} = ctx
+
+    setup_changes(
+      bypass,
+      config,
+      lcov_path: "1-lcov.info",
+      file_path: "path/to/file",
+      status: "added",
+      changed_lines: [1, 2, 3, 4, 5, 6, 7, 8],
+      patch: "@@ -0,0 +1,8 @@\n+one\n+two\n+three\n+four\n+five\n+six\n+seven\n+eight\n",
+      lcov:
+        "TN:\nSF:path/to/file\nDA:1,1\nDA:2,1\nDA:3,1\nDA:4,0\nDA:5,1\nDA:6,1\nDA:7,1\nDA:8,1\nend_of_record",
+      source_code: "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight"
+    )
+
+    setup_changes(
+      bypass,
+      config,
+      lcov_path: "2-lcov.info",
+      file_path: "path/to/file",
+      status: "added",
+      changed_lines: [1, 2, 3, 4, 5, 6, 7, 8],
+      patch: "@@ -0,0 +1,8 @@\n+one\n+two\n+three\n+four\n+five\n+six\n+seven\n+eight\n",
+      lcov:
+        "TN:\nSF:path/to/file\nDA:1,1\nDA:2,1\nDA:3,1\nDA:4,1\nDA:5,1\nDA:6,1\nDA:7,1\nDA:8,1\nend_of_record",
+      source_code: "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight"
+    )
+
+    assert {:ok,
+            %{
+              conclusion: "success",
+              output: %{
+                summary: summary,
+                annotations: []
+              }
+            }} = CoverageReporter.main(config)
+
+    assert summary =~ "100.0%"
   end
 
   test "with a two uncovered lines", ctx do
@@ -58,7 +100,8 @@ defmodule CoverageReporterTest do
     setup_changes(
       bypass,
       config,
-      path: "path/to/file",
+      lcov_path: "1-lcov.info",
+      file_path: "path/to/file",
       status: "added",
       changed_lines: [1, 2, 3, 4, 5, 6, 7, 8],
       patch: "@@ -0,0 +1,8 @@\n+one\n+two\n+three\n+four\n+five\n+six\n+seven\n+eight\n",
@@ -81,7 +124,7 @@ defmodule CoverageReporterTest do
                 ]
               }
             }} =
-             CoverageReporter.run(config)
+             CoverageReporter.main(config)
 
     assert summary =~ "75.0%"
   end
@@ -92,7 +135,8 @@ defmodule CoverageReporterTest do
     setup_changes(
       bypass,
       config,
-      path: "path/to/file",
+      lcov_path: "1-lcov.info",
+      file_path: "path/to/file",
       status: "added",
       changed_lines: [1, 2, 3, 4, 5, 6, 7, 8],
       patch: "@@ -0,0 +1,8 @@\n+one\n+two\n+three\n+four\n+five\n+six\n+seven\n+eight\n",
@@ -114,7 +158,7 @@ defmodule CoverageReporterTest do
                   }
                 ]
               }
-            }} = CoverageReporter.run(config)
+            }} = CoverageReporter.main(config)
 
     assert summary =~ "75.0%"
   end
@@ -125,7 +169,8 @@ defmodule CoverageReporterTest do
     setup_changes(
       bypass,
       config,
-      path: "path/to/file",
+      lcov_path: "1-lcov.info",
+      file_path: "path/to/file",
       status: "added",
       changed_lines: [1, 2, 3, 4, 5, 6, 7, 8],
       patch: "@@ -0,0 +1,8 @@\n+one\n+two\n+three\n+four\n+five\n+six\n+seven\n+eight\n",
@@ -152,7 +197,7 @@ defmodule CoverageReporterTest do
                   }
                 ]
               }
-            }} = CoverageReporter.run(config)
+            }} = CoverageReporter.main(config)
 
     assert summary =~ "75.0%"
   end
@@ -163,7 +208,8 @@ defmodule CoverageReporterTest do
     setup_changes(
       bypass,
       config,
-      path: "path/to/file",
+      lcov_path: "1-lcov.info",
+      file_path: "path/to/file",
       status: "added",
       changed_lines: [],
       patch: "",
@@ -177,7 +223,7 @@ defmodule CoverageReporterTest do
               output: %{
                 annotations: []
               }
-            }} = CoverageReporter.run(config)
+            }} = CoverageReporter.main(config)
   end
 
   test "without annotations", ctx do
@@ -186,7 +232,8 @@ defmodule CoverageReporterTest do
     setup_changes(
       bypass,
       config,
-      path: "path/to/file",
+      lcov_path: "1-lcov.info",
+      file_path: "path/to/file",
       status: "added",
       changed_lines: [1],
       patch: "@@ -0,0 +1,1 @@\n+one",
@@ -202,7 +249,7 @@ defmodule CoverageReporterTest do
                 summary: summary,
                 annotations: []
               }
-            }} = CoverageReporter.run(config)
+            }} = CoverageReporter.main(config)
 
     assert summary =~ "100.0%"
   end
@@ -213,7 +260,8 @@ defmodule CoverageReporterTest do
     setup_changes(
       bypass,
       config,
-      path: "path/to/file",
+      lcov_path: "1-lcov.info",
+      file_path: "path/to/file",
       status: "added",
       changed_lines: [1],
       patch: "@@ -1,1 +1,1 @@\n-one\n+two\n ",
@@ -229,7 +277,7 @@ defmodule CoverageReporterTest do
                 summary: summary,
                 annotations: []
               }
-            }} = CoverageReporter.run(config)
+            }} = CoverageReporter.main(config)
 
     assert summary =~ "100.0%"
   end
@@ -242,7 +290,8 @@ defmodule CoverageReporterTest do
     setup_changes(
       bypass,
       config,
-      path: "path/to/file",
+      lcov_path: "1-lcov.info",
+      file_path: "path/to/file",
       status: "added",
       changed_lines: [1, 2, 3],
       patch: "@@ -0,0 +1,8 @@\n+one\n+two\n+three",
@@ -250,15 +299,67 @@ defmodule CoverageReporterTest do
       source_code: "one\ntwo\nthree"
     )
 
-    assert {:ok, %{output: %{summary: summary}}} = CoverageReporter.run(config)
+    assert {:ok, %{output: %{summary: summary}}} = CoverageReporter.main(config)
 
     assert summary =~ " path/to/file "
+  end
+
+  test "when changed lines without lcov info", ctx do
+    %{bypass: bypass, config: config} = ctx
+
+    setup_changes(
+      bypass,
+      config,
+      changed_lines: [1, 2, 3],
+      patch: "@@ -0,0 +1,8 @@\n+one\n+two\n+three",
+      lcov: "TN:\nSF:system/path/to/file\nDA:2,1\nDA:3,1\nend_of_record",
+      source_code: "one\ntwo\nthree"
+    )
+
+    assert {:ok, %{output: %{summary: _summary}}} = CoverageReporter.main(config)
+  end
+
+  test "missing coverage is not a changed line", ctx do
+    %{bypass: bypass, config: config} = ctx
+
+    setup_changes(
+      bypass,
+      config,
+      lcov_path: "1-lcov.info",
+      file_path: "path/to/file",
+      status: "added",
+      changed_lines: [1, 2, 3],
+      patch: "@@ -0,0 +1,8 @@\n+one\n+two\n+three\n",
+      lcov: "TN:\nSF:path/to/file\nDA:4,1\nDA:5,0\nDA:6,1\nend_of_record",
+      source_code: "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight"
+    )
+
+    assert {:ok, %{output: %{annotations: []}}} = CoverageReporter.main(config)
+  end
+
+  test "ext", ctx do
+    %{bypass: bypass, config: config} = ctx
+
+    setup_changes(
+      bypass,
+      config,
+      lcov_path: "1-lcov.info",
+      file_path: "path/to/file",
+      status: "added",
+      changed_lines: [1, 2, 3],
+      patch: "@@ -0,0 +1,8 @@\n+one\n+two\n+three\n",
+      lcov: "TN:\nSF:path/to/file\nDA:4,1\nDA:5,0\nDA:6,1\nend_of_record",
+      source_code: "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight"
+    )
+
+    assert {:ok, %{output: %{annotations: []}}} = CoverageReporter.main(config)
   end
 
   defp setup_changes(bypass, config, opts) do
     changed_lines = Keyword.fetch!(opts, :changed_lines)
     patch = Keyword.fetch!(opts, :patch)
-    path = Keyword.fetch!(opts, :path)
+    file_path = Keyword.get(opts, :file_path, "path/to/file")
+    lcov_path = Keyword.get(opts, :lcov_path, "lcov.info")
     status = Keyword.get(opts, :status, "added")
     lcov = Keyword.fetch!(opts, :lcov)
     source_code = Keyword.fetch!(opts, :source_code)
@@ -271,7 +372,7 @@ defmodule CoverageReporterTest do
           %{
             status: status,
             changed_lines: changed_lines,
-            filename: path,
+            filename: file_path,
             patch: patch
           }
         ])
@@ -306,17 +407,17 @@ defmodule CoverageReporterTest do
       )
     end
 
-    File.write!(config[:github_workspace] <> "/" <> config[:input_lcov_path], lcov)
+    File.write!(config[:github_workspace] <> "/" <> lcov_path, lcov)
 
     directory =
-      String.split(path, "/")
+      String.split(file_path, "/")
       |> Enum.reverse()
       |> Enum.drop(1)
       |> Enum.reverse()
       |> Enum.join("/")
 
     File.mkdir_p!(config[:github_workspace] <> "/" <> directory)
-    File.write!(config[:github_workspace] <> "/" <> path, source_code)
+    File.write!(config[:github_workspace] <> "/" <> file_path, source_code)
   end
 
   defp json(conn, status, data) do

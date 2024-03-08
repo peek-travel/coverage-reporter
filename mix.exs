@@ -1,13 +1,16 @@
 defmodule CoverageReporter.MixProject do
   use Mix.Project
 
+  @app :coverage_reporter
+
   def project do
     [
-      app: :coverage_reporter,
+      app: @app,
       version: "0.1.0",
       elixir: "~> 1.14",
-      start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      test_coverage: [tool: LcovEx],
+      escript: [main_module: CoverageReporter]
     ]
   end
 
