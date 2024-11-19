@@ -31,7 +31,7 @@ defmodule CoverageReporterTest do
       changed_lines: [1, 2, 3, 4, 5, 6, 7, 8],
       patch: "@@ -0,0 +1,8 @@\n+one\n+two\n+three\n+four\n+five\n+six\n+seven\n+eight\n",
       lcov:
-        "TN:\nSF:path/to/file\nDA:1,1\nDA:2,1\nDA:3,1\nDA:4,0\nDA:5,1\nDA:6,1\nDA:7,1\nDA:8,1\nend_of_record",
+        "TN:Module.Name\nSF:path/to/file\nFNDA:2,do_check/2\nFNF:22\nFNH:6\nDA:1,1\nDA:2,1\nDA:3,1\nDA:4,0\nDA:5,1\nDA:6,1\nDA:7,1\nDA:8,1\nLF:42\nLH:34\nend_of_record",
       source_code: "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight"
     )
 
@@ -330,7 +330,8 @@ defmodule CoverageReporterTest do
       status: "added",
       changed_lines: [1, 2, 3],
       patch: "@@ -0,0 +1,8 @@\n+one\n+two\n+three\n",
-      lcov: "TN:\nSF:path/to/file\nDA:4,1\nDA:5,0\nDA:6,1\nend_of_record",
+      lcov:
+        "TN:Module\nSF:path/to/file\nFNDA:2,do_check/2\nFNF:22\nFNH:6\nDA:4,1\nDA:5,0\nDA:6,1\nLF:42\nLH:34\nend_of_record",
       source_code: "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight"
     )
 
@@ -339,6 +340,26 @@ defmodule CoverageReporterTest do
 
   test "ext", ctx do
     %{bypass: bypass, config: config} = ctx
+
+    setup_changes(
+      bypass,
+      config,
+      lcov_path: "1-lcov.info",
+      file_path: "path/to/file",
+      status: "added",
+      changed_lines: [1, 2, 3],
+      patch: "@@ -0,0 +1,8 @@\n+one\n+two\n+three\n",
+      lcov: "TN:\nSF:path/to/file\nDA:4,1\nDA:5,0\nDA:6,1\nend_of_record",
+      source_code: "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight"
+    )
+
+    assert {:ok, %{output: %{annotations: []}}} = CoverageReporter.main(config)
+  end
+
+  test "debug mode", ctx do
+    %{bypass: bypass, config: config} = ctx
+
+    config = Keyword.put(config, :debug, true)
 
     setup_changes(
       bypass,

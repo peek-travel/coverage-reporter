@@ -20,9 +20,18 @@ defmodule CoverageReporter do
   However, The LCOV files produced by excoveralls only include SF, DA, LF, LH, and end_of_record lines.
   """
 
+  require Logger
+
   def main(opts) do
     config = get_config(opts)
-    %{pull_number: pull_number, head_branch: head_branch, repository: repository} = config
+
+    %{
+      pull_number: pull_number,
+      head_branch: head_branch,
+      repository: repository,
+      debug: debug
+    } = config
+
     changed_files = get_changed_files(config)
     {total, module_results} = get_coverage_from_lcov_files(config)
     changed_module_results = module_results_for_changed_files(module_results, changed_files)
@@ -47,8 +56,15 @@ defmodule CoverageReporter do
         }
       }
 
+    log(debug, """
+    Check Runs Request Parameters:
+    ---------------------
+    #{inspect(params, pretty: true, limit: :infinity)}
+    """)
+
     github_request(config, method: :post, url: "repos/#{repository}/check-runs", json: params)
     create_or_update_review_comment(config, summary)
+    # maybe_publish_log_messages(config)
 
     {:ok, params}
   end
@@ -385,10 +401,7 @@ defmodule CoverageReporter do
   end
 
   defp github_request(config, opts) do
-    %{
-      github_api_url: github_api_url,
-      github_token: github_token
-    } = config
+    %{github_api_url: github_api_url, github_token: github_token, debug: debug} = config
 
     headers = [
       {:authorization, "Bearer #{github_token}"},
@@ -408,6 +421,16 @@ defmodule CoverageReporter do
 
     {_request, %{status: status, body: body}} = Req.request(request)
 
+    log(debug, """
+    Request Parameters:
+    ---------------------
+    #{inspect(options, pretty: true, limit: :infinity)}
+
+    Response:
+    ---------------------
+    #{inspect(body, pretty: true, limit: :infinity)}
+    """)
+
     {status, body}
   end
 
@@ -421,7 +444,8 @@ defmodule CoverageReporter do
       github_token: github_token(opts),
       github_api_url: github_api_url(opts),
       pull_number: pull_number(opts),
-      lcov_path_prefix: lcov_path_prefix(opts)
+      lcov_path_prefix: lcov_path_prefix(opts),
+      debug: debug(opts)
     }
   end
 
@@ -436,6 +460,7 @@ defmodule CoverageReporter do
   defp github_workspace(opts), do: opts[:github_workspace] || System.get_env("GITHUB_WORKSPACE")
   defp github_token(opts), do: opts[:input_github_token] || System.get_env("INPUT_GITHUB_TOKEN")
   defp github_api_url(opts), do: opts[:github_api_url] || System.get_env("GITHUB_API_URL")
+  defp debug(opts), do: opts[:debug] || System.get_env("DEBUG")
 
   defp lcov_path_prefix(opts),
     do: opts[:lcov_path_prefix] || System.get_env("INPUT_LCOV_PATH_PREFIX")
@@ -445,5 +470,11 @@ defmodule CoverageReporter do
       (opts[:github_ref] || System.get_env("GITHUB_REF")) |> String.split("/")
 
     pr_number
+  end
+
+  defp log(debug, message) do
+    if debug do
+      :io.format(:standard_error, message, [])
+    end
   end
 end
