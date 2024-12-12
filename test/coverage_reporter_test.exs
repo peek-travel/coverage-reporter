@@ -44,7 +44,7 @@ defmodule CoverageReporterTest do
                   %{
                     start_line: 4,
                     end_line: 4,
-                    raw_details: "0.... 4   four"
+                    raw_details: "1.... 3   three\n0.... 4   four\n1.... 5   five"
                   }
                 ]
               }
@@ -119,7 +119,7 @@ defmodule CoverageReporterTest do
                   %{
                     start_line: 4,
                     end_line: 5,
-                    raw_details: "0.... 4   four\n0.... 5   five"
+                    raw_details: "1.... 3   three\n0.... 4   four\n0.... 5   five\n1.... 6   six"
                   }
                 ]
               }
@@ -154,7 +154,8 @@ defmodule CoverageReporterTest do
                   %{
                     start_line: 4,
                     end_line: 6,
-                    raw_details: "0.... 4   four\n1.... 5   five\n0.... 6   six"
+                    raw_details:
+                      "1.... 3   three\n0.... 4   four\n1.... 5   five\n0.... 6   six\n1.... 7   seven"
                   }
                 ]
               }
@@ -188,12 +189,12 @@ defmodule CoverageReporterTest do
                   %{
                     start_line: 8,
                     end_line: 8,
-                    raw_details: "0.... 8   eight"
+                    raw_details: "1.... 7   seven\n0.... 8   eight"
                   },
                   %{
                     start_line: 1,
                     end_line: 1,
-                    raw_details: "0.... 1   one"
+                    raw_details: "0.... 1   one\n1.... 2   two"
                   }
                 ]
               }

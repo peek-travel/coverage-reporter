@@ -321,9 +321,15 @@ defmodule CoverageReporter do
   end
 
   defp create_annotation_message(start_line, end_line, source_code) do
+    get_start_line = fn
+      1 -> 0
+      2 -> 0
+      n -> n - 2
+    end
+
     source_code =
       source_code
-      |> Enum.slice((start_line - 1)..(end_line - 1))
+      |> Enum.slice(get_start_line.(start_line)..end_line)
       |> Enum.join("\n")
 
     %{
