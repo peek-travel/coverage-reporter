@@ -252,17 +252,18 @@ defmodule CoverageReporter do
       coverage_map = Enum.into(coverage_by_line, %{})
 
       # Create formatted source code for annotations
-      source_code =
+      source_code_lines =
         source_lines
         |> Enum.map(fn {line_content, line_number} -> [nil, line_content, line_number] end)
-        |> then(fn source_code_lines ->
-          Enum.reduce(coverage_by_line, source_code_lines, fn {line_number, count}, acc ->
-            List.update_at(
-              acc,
-              line_number - 1,
-              &[count, Enum.at(&1, 1), Enum.at(&1, 2)]
-            )
-          end)
+
+      source_code =
+        coverage_by_line
+        |> Enum.reduce(source_code_lines, fn {line_number, count}, acc ->
+          List.update_at(
+            acc,
+            line_number - 1,
+            &[count, Enum.at(&1, 1), Enum.at(&1, 2)]
+          )
         end)
         |> Enum.map(&add_source_code_line/1)
 
