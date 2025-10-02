@@ -20,6 +20,8 @@ defmodule CoverageReporter do
   However, The LCOV files produced by excoveralls only include SF, DA, LF, LH, and end_of_record lines.
   """
 
+  alias CoverageReporter.UncoveredLineGrouper
+
   def main(opts) do
     config = get_config(opts)
     %{pull_number: pull_number, head_branch: head_branch, repository: repository} = config
@@ -240,29 +242,33 @@ defmodule CoverageReporter do
       %{file: file, changed_lines: changed_lines} =
         Enum.find(changed_files, fn %{file: file} -> String.ends_with?(module_path, file) end)
 
-      source_code_lines =
+      source_lines =
         github_workspace
         |> Path.join(file)
         |> File.read!()
         |> String.split("\n")
         |> Enum.with_index(1)
-        |> Enum.map(fn {line, index} -> [nil, line, index] end)
 
+      coverage_map = Enum.into(coverage_by_line, %{})
+
+      # Create formatted source code for annotations
       source_code =
-        coverage_by_line
-        |> Enum.reduce(source_code_lines, fn {line_number, count}, source_code_lines ->
-          List.update_at(
-            source_code_lines,
-            line_number - 1,
-            &[count, Enum.at(&1, 1), Enum.at(&1, 2)]
-          )
+        source_lines
+        |> Enum.map(fn {line_content, line_number} -> [nil, line_content, line_number] end)
+        |> then(fn source_code_lines ->
+          Enum.reduce(coverage_by_line, source_code_lines, fn {line_number, count}, acc ->
+            List.update_at(
+              acc,
+              line_number - 1,
+              &[count, Enum.at(&1, 1), Enum.at(&1, 2)]
+            )
+          end)
         end)
         |> Enum.map(&add_source_code_line/1)
 
-      coverage_by_line
-      |> Enum.filter(fn {_line_number, count} -> count == 0 end)
-      |> Enum.map(fn {line_number, _} -> line_number end)
-      |> Enum.reduce(_groups = [], &add_line_to_groups/2)
+      # Group consecutive uncovered lines intelligently
+      source_lines
+      |> UncoveredLineGrouper.group_lines(coverage_map)
       |> Enum.reduce(
         _annotations = [],
         &do_create_annotations(&1, &2, changed_lines, file, source_code)
@@ -271,8 +277,8 @@ defmodule CoverageReporter do
   end
 
   defp do_create_annotations(line_number_group, annotations, changed_lines, file, source_code) do
-    end_line = List.first(line_number_group)
-    start_line = List.last(line_number_group)
+    start_line = List.first(line_number_group)
+    end_line = List.last(line_number_group)
 
     add_annotation? =
       Enum.any?(changed_lines, &(&1 >= start_line and &1 <= end_line))
@@ -314,25 +320,6 @@ defmodule CoverageReporter do
       message: "Lines #{start_line} to #{end_line} are not covered by tests.",
       raw_details: source_code
     }
-  end
-
-  defp add_line_to_groups(line_number, groups) do
-    group =
-      cond do
-        Enum.empty?(groups) ->
-          [[line_number]]
-
-        [current_group | remaining_groups] = groups ->
-          previous_line_number = List.first(current_group)
-
-          if line_number - previous_line_number < 4 do
-            [[line_number] ++ current_group] ++ remaining_groups
-          else
-            [[line_number]] ++ groups
-          end
-      end
-
-    Enum.sort(group)
   end
 
   defp extract_changed_lines(nil), do: []

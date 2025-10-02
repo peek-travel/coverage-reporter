@@ -11,7 +11,7 @@ defmodule CoverageReporterTest do
       github_ref: "refs/pull/1/merge",
       input_github_token: "github-token",
       github_workspace: workspace,
-      github_api_url: "http://localhost:#{bypass.port()}",
+      github_api_url: "http://localhost:#{bypass.port}",
       github_repository: "owner/repo",
       github_head_ref: "feature-branch"
     ]
@@ -200,6 +200,84 @@ defmodule CoverageReporterTest do
             }} = CoverageReporter.main(config)
 
     assert summary =~ "75.0%"
+  end
+
+  test "with blank lines between uncovered lines", ctx do
+    %{bypass: bypass, config: config} = ctx
+
+    setup_changes(
+      bypass,
+      config,
+      lcov_path: "1-lcov.info",
+      file_path: "path/to/file",
+      status: "added",
+      changed_lines: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      patch:
+        "@@ -0,0 +1,10 @@\n+function() {\n+  uncovered_line\n+\n+  another_uncovered_line\n+  covered_line\n+\n+  final_uncovered_line\n+}\n",
+      lcov: "TN:\nSF:path/to/file\nDA:1,1\nDA:2,0\nDA:4,0\nDA:5,1\nDA:7,0\nDA:8,1\nend_of_record",
+      source_code:
+        "function() {\n  uncovered_line\n\n  another_uncovered_line\n  covered_line\n\n  final_uncovered_line\n}"
+    )
+
+    assert {:ok,
+            %{
+              conclusion: "neutral",
+              output: %{
+                summary: summary,
+                annotations: [
+                  %{
+                    start_line: 2,
+                    end_line: 7,
+                    raw_details: _raw_details
+                  }
+                ]
+              }
+            }} = CoverageReporter.main(config)
+
+    assert summary =~ "50.0%"
+  end
+
+  test "with multiple separate uncovered groups", ctx do
+    %{bypass: bypass, config: config} = ctx
+
+    setup_changes(
+      bypass,
+      config,
+      lcov_path: "1-lcov.info",
+      file_path: "path/to/file",
+      status: "added",
+      changed_lines: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      patch:
+        "@@ -0,0 +1,12 @@\n+line1\n+uncovered1\n+uncovered2\n+covered1\n+covered2\n+covered3\n+uncovered3\n+uncovered4\n+covered4\n+covered5\n+uncovered5\n+end\n",
+      lcov:
+        "TN:\nSF:path/to/file\nDA:1,1\nDA:2,0\nDA:3,0\nDA:4,1\nDA:5,1\nDA:6,1\nDA:7,0\nDA:8,0\nDA:9,1\nDA:10,1\nDA:11,0\nDA:12,1\nend_of_record",
+      source_code:
+        "line1\nuncovered1\nuncovered2\ncovered1\ncovered2\ncovered3\nuncovered3\nuncovered4\ncovered4\ncovered5\nuncovered5\nend"
+    )
+
+    assert {:ok,
+            %{
+              conclusion: "neutral",
+              output: %{
+                summary: summary,
+                annotations: annotations
+              }
+            }} = CoverageReporter.main(config)
+
+    # Should create 3 separate annotations:
+    # 1. Lines 2-3 (uncovered1, uncovered2)
+    # 2. Lines 7-8 (uncovered3, uncovered4)
+    # 3. Line 11 (uncovered5)
+    assert length(annotations) == 3
+
+    # Check that we have the expected line ranges
+    line_ranges = Enum.map(annotations, fn ann -> {ann.start_line, ann.end_line} end)
+    assert {2, 3} in line_ranges
+    assert {7, 8} in line_ranges
+    assert {11, 11} in line_ranges
+
+    # 7 covered out of 12 total
+    assert summary =~ "58.33%"
   end
 
   test "without changed files", ctx do
