@@ -67,7 +67,7 @@ jobs:
         coverage_threshold: 90
 
     - name: Restore PLT cache
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       id: plt-cache
       with:
         key: plt-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}
