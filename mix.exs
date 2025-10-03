@@ -30,7 +30,8 @@ defmodule CoverageReporter.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:jason, "~> 1.2"},
       {:lcov_ex, "~> 0.3", only: [:dev, :test], runtime: false},
-      {:req, "~> 0.4.4"}
+      {:req, "~> 0.4.4"},
+      {:castore, "~> 1.0"}
     ]
   end
 end

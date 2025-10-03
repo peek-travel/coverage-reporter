@@ -389,8 +389,7 @@ defmodule CoverageReporter do
     options =
       Keyword.merge(opts,
         base_url: github_api_url,
-        headers: headers,
-        connect_options: [transport_opts: [cacertfile: "/cacerts.pem"]]
+        headers: headers
       )
 
     request = Req.new(options)
