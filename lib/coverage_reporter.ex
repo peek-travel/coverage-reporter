@@ -50,6 +50,7 @@ defmodule CoverageReporter do
       }
 
     github_request(config, method: :post, url: "repos/#{repository}/check-runs", json: params)
+
     create_or_update_review_comment(config, summary)
 
     {:ok, params}
@@ -259,9 +260,9 @@ defmodule CoverageReporter do
 
       source_code =
         coverage_by_line
-        |> Enum.reduce(source_code_lines, fn {line_number, count}, acc ->
+        |> Enum.reduce(source_code_lines, fn {line_number, count}, source_code_lines ->
           List.update_at(
-            acc,
+            source_code_lines,
             line_number - 1,
             &[count, Enum.at(&1, 1), Enum.at(&1, 2)]
           )
@@ -269,12 +270,12 @@ defmodule CoverageReporter do
         |> Enum.map(&add_source_code_line/1)
 
       # Group consecutive uncovered lines intelligently
-      source_lines
-      |> UncoveredLineGrouper.group_lines(coverage_map)
-      |> Enum.reduce(
-        _annotations = [],
-        &do_create_annotations(&1, &2, changed_lines, file, source_code)
-      )
+      groups = UncoveredLineGrouper.group_lines(source_lines, coverage_map)
+
+      annotations =
+        Enum.reduce(groups, [], &do_create_annotations(&1, &2, changed_lines, file, source_code))
+
+      annotations
     end)
   end
 
@@ -286,17 +287,21 @@ defmodule CoverageReporter do
       Enum.any?(changed_lines, &(&1 >= start_line and &1 <= end_line))
 
     if add_annotation? do
+      first_changed_line =
+        changed_lines
+        |> Enum.filter(&(&1 >= start_line and &1 <= end_line))
+        |> Enum.min(fn -> start_line end)
+
       annotation =
-        Map.merge(
-          %{
-            title: "Code Coverage",
-            start_line: start_line,
-            end_line: end_line,
-            annotation_level: "warning",
-            path: file
-          },
-          create_annotation_message(start_line, end_line, source_code)
-        )
+        %{
+          title: "Code Coverage",
+          start_line: first_changed_line,
+          end_line: end_line,
+          annotation_level: "warning",
+          path: file,
+          message: "Lines #{start_line} to #{end_line} are not covered by tests.",
+          raw_details: create_raw_details(start_line, end_line, source_code)
+        }
 
       [annotation] ++ annotations
     else
@@ -312,16 +317,12 @@ defmodule CoverageReporter do
     "#{String.pad_trailing("#{count}", 5, ".")} #{String.pad_trailing("#{line_number}", 3)} #{line}"
   end
 
-  defp create_annotation_message(start_line, end_line, source_code) do
-    source_code =
-      source_code
-      |> Enum.slice((start_line - 1)..(end_line - 1))
-      |> Enum.join("\n")
-
-    %{
-      message: "Lines #{start_line} to #{end_line} are not covered by tests.",
-      raw_details: source_code
-    }
+  defp create_raw_details(start_line, end_line, source_code) do
+    source_code
+    |> Enum.slice((start_line - 1)..(end_line - 1))
+    |> Enum.join("\n")
+    # GitHub has a 64KB limit per annotation's raw_details
+    |> String.slice(0, 64_000)
   end
 
   defp extract_changed_lines(nil), do: []

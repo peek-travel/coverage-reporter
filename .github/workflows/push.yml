@@ -27,14 +27,14 @@ jobs:
         elixir-version: ${{ env.ELIXIR_VERSION }}
 
     - name: Build Cache
-      uses: actions/cache/restore@v3
+      uses: actions/cache@v4
       id: build-cache
       with:
         path: _build
         key: build-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('mix.lock') }}
 
     - name: Deps Cache
-      uses: actions/cache/restore@v3
+      uses: actions/cache@v4
       id: deps-cache
       with:
         path: deps
@@ -80,23 +80,3 @@ jobs:
     - name: Run dialyzer
       run: MIX_ENV=dev mix dialyzer --format github
 
-    - name: Save Deps Cache
-      id: deps-cache-save
-      uses: actions/cache/save@v3
-      with:
-        path: deps
-        key: deps-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('mix.lock') }}
-
-    - name: Save Build Cache
-      id: build-cache-save
-      uses: actions/cache/save@v3
-      with:
-        path: _build
-        key: build-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('mix.lock') }}
-
-    - name: Save PLT cache
-      id: plt-cache-save
-      uses: actions/cache/save@v3
-      with:
-        path: priv/plts
-        key: plt-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}

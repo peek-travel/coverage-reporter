@@ -119,7 +119,11 @@ defmodule CoverageReporterTest do
                   %{
                     start_line: 4,
                     end_line: 5,
-                    raw_details: "0.... 4   four\n0.... 5   five"
+                    raw_details: "0.... 4   four\n0.... 5   five",
+                    annotation_level: "warning",
+                    message: "Lines 4 to 5 are not covered by tests.",
+                    path: "path/to/file",
+                    title: "Code Coverage"
                   }
                 ]
               }
@@ -154,7 +158,11 @@ defmodule CoverageReporterTest do
                   %{
                     start_line: 4,
                     end_line: 6,
-                    raw_details: "0.... 4   four\n1.... 5   five\n0.... 6   six"
+                    raw_details: "0.... 4   four\n1.... 5   five\n0.... 6   six",
+                    annotation_level: "warning",
+                    message: "Lines 4 to 6 are not covered by tests.",
+                    path: "path/to/file",
+                    title: "Code Coverage"
                   }
                 ]
               }
@@ -228,7 +236,11 @@ defmodule CoverageReporterTest do
                   %{
                     start_line: 2,
                     end_line: 7,
-                    raw_details: _raw_details
+                    raw_details: _raw_details,
+                    annotation_level: "warning",
+                    message: "Lines 2 to 7 are not covered by tests.",
+                    path: "path/to/file",
+                    title: "Code Coverage"
                   }
                 ]
               }
@@ -415,7 +427,7 @@ defmodule CoverageReporterTest do
     assert {:ok, %{output: %{annotations: []}}} = CoverageReporter.main(config)
   end
 
-  test "ext", ctx do
+  test "when LCOV data is missing for changed lines", ctx do
     %{bypass: bypass, config: config} = ctx
 
     setup_changes(

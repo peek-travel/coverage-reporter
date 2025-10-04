@@ -98,5 +98,42 @@ defmodule CoverageReporter.UncoveredLineGrouperTest do
 
       assert result == []
     end
+
+    test "ignores lines without LCOV data (not executable)" do
+      source_lines = [
+        {"# Comment line", 1},
+        {"def function", 2},
+        {"  uncovered_line", 3},
+        {"  # Another comment", 4},
+        {"  covered_line", 5},
+        {"end", 6}
+      ]
+
+      # Only lines 2, 3, 5 have LCOV data - lines 1, 4, 6 are not executable
+      coverage_map = %{2 => 1, 3 => 0, 5 => 1}
+
+      result = UncoveredLineGrouper.group_lines(source_lines, coverage_map)
+
+      # Should only group line 3 as uncovered, ignoring lines without LCOV data
+      assert result == [[3, 4]]
+    end
+
+    test "bridges uncovered lines through not executable lines" do
+      source_lines = [
+        {"def function", 1},
+        {"  uncovered_line_1", 2},
+        {"  # Comment separating uncovered lines", 3},
+        {"  uncovered_line_2", 4},
+        {"end", 5}
+      ]
+
+      # Line 3 has no LCOV data (comment), so it's not executable
+      coverage_map = %{1 => 1, 2 => 0, 4 => 0, 5 => 1}
+
+      result = UncoveredLineGrouper.group_lines(source_lines, coverage_map)
+
+      # Should bridge through not executable line 3 to create one group
+      assert result == [[2, 3, 4]]
+    end
   end
 end

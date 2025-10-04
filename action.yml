@@ -2,7 +2,7 @@ name: "Coverage Reporter"
 description: "Coverage Reporter"
 
 inputs:
-  GITHUB_TOKEN:
+  github_token:
     description: "Github token of the repository (automatically created by Github)"
     default: ${{ github.token }}
     required: false
